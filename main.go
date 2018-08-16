@@ -98,7 +98,7 @@ func mainHandler(c *gin.Context) {
 	c.Set("referer", c.Request.Header.Get("Referer"))
 	c.Set("forwarded", c.Request.Header.Get("X-Forwarded-For"))
 	c.Set("country_code", c.Request.Header.Get("CF-IPCountry"))
-	c.Set("domain", os.Getenv("domain"))
+	c.Set("domain", os.Getenv("DOMAIN"))
 
 	ua := strings.Split(c.Request.UserAgent(), "/")
 
