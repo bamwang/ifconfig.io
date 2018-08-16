@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/brandfolder/gin-gorelic"
 	"github.com/coreos/go-systemd/activation"
 	"github.com/gin-gonic/gin"
 )
@@ -69,8 +68,11 @@ func mainHandler(c *gin.Context) {
 	}
 
 	cfIP := net.ParseIP(c.Request.Header.Get("CF-Connecting-IP"))
-	if cfIP != nil {
+	xfIP := c.Request.Header.Get("X-Forwarded-For")
+	if cfIP != nil && cfIP.String() != "127.0.0.1" {
 		ip.IP = cfIP
+	} else if xfIP != "" {
+		ip.IP = net.ParseIP(xfIP)
 	}
 
 	if fields[0] == "porttest" {
@@ -96,6 +98,7 @@ func mainHandler(c *gin.Context) {
 	c.Set("referer", c.Request.Header.Get("Referer"))
 	c.Set("forwarded", c.Request.Header.Get("X-Forwarded-For"))
 	c.Set("country_code", c.Request.Header.Get("CF-IPCountry"))
+	c.Set("domain", os.Getenv("domain"))
 
 	ua := strings.Split(c.Request.UserAgent(), "/")
 
@@ -162,15 +165,6 @@ func main() {
 	r.Use(Logger())
 	r.LoadHTMLGlob("templates/*")
 
-	if NEWRELIC_LICENSE_KEY := os.Getenv("NEWRELIC_LICENSE_KEY"); NEWRELIC_LICENSE_KEY != "" {
-		var NEWRELIC_APPLICATION_NAME string
-		if NEWRELIC_APPLICATION_NAME = os.Getenv("NEWRELIC_APPLICATION_NAME"); NEWRELIC_APPLICATION_NAME == "" {
-			NEWRELIC_APPLICATION_NAME = "ifconfig.io"
-		}
-		gorelic.InitNewrelicAgent(NEWRELIC_LICENSE_KEY, NEWRELIC_APPLICATION_NAME, true)
-		r.Use(gorelic.Handler)
-	}
-
 	r.GET("/:field", mainHandler)
 	r.GET("/", mainHandler)
 
@@ -191,7 +185,7 @@ func main() {
 	}(errc)
 
 	// Listen on whatever systemd tells us to.
-	listeners, err := activation.Listeners(true)
+	listeners, err := activation.Listeners()
 	if err != nil {
 		fmt.Printf("Could not get systemd listerns with err %q", err)
 	}
